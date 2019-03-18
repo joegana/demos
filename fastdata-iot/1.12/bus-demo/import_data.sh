@@ -11,5 +11,4 @@ then
     echo "**************************************************";
     exit 1
 fi
-cd /opt/bus-demo/commons/src/main/resources
-cqlsh $HOSTNAME $HOSTPORT < create_tables.cql
+cqlsh $HOSTNAME $HOSTPORT < /opt/bus-demo/create_tables.cql
