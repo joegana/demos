@@ -40,19 +40,19 @@ or Kafka via the Akka backendsystem.
 
 ## Prerequisites
 
-- A running [DC/OS 1.11](https://dcos.io/releases/) or higher cluster with at least 4 private agents and 1 public agent each with 2 CPUs and 5 GB of RAM available as well as the [DC/OS CLI](https://docs.mesosphere.com/1.11/cli/) installed in version 0.14 or higher.
+- A DC/OS cluster running [1.12](https://dcos.io/releases/) or later, with at least 4 private agents and 1 public agent each with 2 CPUs and 5 GB of RAM available as well as the [DC/OS CLI](https://docs.mesosphere.com/1.12/cli/) installed in version 0.14 or higher.
 - The JSON query util [jq](https://github.com/stedolan/jq/wiki/Installation) must be installed.
-- [SSH](https://docs.mesosphere.com/1.11/administering-clusters/sshcluster/) cluster access must be set up.
+- [SSH](https://docs.mesosphere.com/1.12/administering-clusters/sshcluster/) cluster access must be set up.
 - The [dcos/demo](https://github.com/dcos/demos/) Git repo must be available locally, use `git clone https://github.com/dcos/demos.git` if you haven't done so, yet.
 
 ## Install
 
 ### Spark
 
-Install the DC/OS Apache Spark package (Version 1.0.2-2.0.0 or higher):
+Install the DC/OS Apache Spark package (Version 2.5.0-2.2.1 is required here for compatibility):
 
 ```bash
-dcos package install spark
+dcos package install spark --options=configuration/spark.json --package-version=2.5.0-2.2.1
 ```
 
 ### Cassandra
@@ -69,7 +69,7 @@ Once it sucessfully deployed, check the dcos cassandra subcommand:
 dcos cassandra endpoints native-client
 ```
 
-The setup of the required cassandra schema is done via a [Jobs](https://docs.mesosphere.com/1.11/deploying-jobs/) job.
+The setup of the required cassandra schema is done via a [Jobs](https://docs.mesosphere.com/1.12/deploying-jobs/) job.
 
 With the jobs frontend you're able to use the following configuration which will pull down a simple Docker Hub image with code from the [BusFloatingData](https://github.com/ANierbeck/BusFloatingData) repository and the [import_data.sh](bus-demo/import_data.sh) script.
 
@@ -83,7 +83,7 @@ With the jobs frontend you're able to use the following configuration which will
     "mem": 256,
     "disk": 0,
     "docker": {
-      "image": "mesosphere/bus-demo-schema:3.0.7"
+      "image": "dcos/bus-demo-schema:3.11.4"
     }
   }
 }
@@ -98,7 +98,13 @@ dcos job add configuration/cassandra-schema.json
 dcos job run init-cassandra-schema-job
 ```
 
-This will start a job, which initializes the configured cassandra.
+This will start a job, which initializes the configured cassandra.  Verify that the job has run successfully as follows:
+
+``` bash
+$ dcos job list
+            ID             STATUS       LAST RUN
+init-cassandra-schema-job  Unscheduled  Success
+```
 
 ### Kafka
 
@@ -126,7 +132,7 @@ Using the UI, copy and paste the JSON into the JSON editor:
     "type": "MESOS",
     "volumes": [],
     "docker": {
-      "image": "mesosphere/akka-ingest:0.2.1-SNAPSHOT",
+      "image": "mesosphere/akka-ingest:0.2.2",
       "privileged": false,
       "parameters": [],
       "forcePullImage": true
@@ -152,7 +158,7 @@ The digestional part of the application is done via Spark jobs. To run those job
 dcos cli.
 
 ```bash
-dcos spark run --submit-args='--driver-cores 0.1 --driver-memory 1024M --total-executor-cores 4 --class de.nierbeck.floating.data.stream.spark.KafkaToCassandraSparkApp https://oss.sonatype.org/content/repositories/snapshots/de/nierbeck/floating/data/spark-digest_2.11/0.2.1-SNAPSHOT/spark-digest_2.11-0.2.1-SNAPSHOT-assembly.jar METRO-Vehicles node-0-server.cassandra.autoip.dcos.thisdcos.directory:9042 broker.kafka.l4lb.thisdcos.directory:9092'
+dcos spark run --submit-args='--driver-cores 0.1 --driver-memory 1024M --total-executor-cores 4 --class de.nierbeck.floating.data.stream.spark.KafkaToCassandraSparkApp https://oss.sonatype.org/content/repositories/snapshots/de/nierbeck/floating/data/spark-digest_2.11/0.5.0-SNAPSHOT/spark-digest_2.11-0.5.0-SNAPSHOT-assembly.jar METRO-Vehicles node-0-server.cassandra.autoip.dcos.thisdcos.directory:9042 broker.kafka.l4lb.thisdcos.directory:9092'
 ```
 
 ### Dashboard Application
@@ -167,7 +173,7 @@ Either install it via the DC/OS UI by creating a new marathon app:
   "container": {
     "type": "MESOS",
     "docker": {
-      "image": "mesosphere/akka-server:0.2.1-SNAPSHOT",
+      "image": "mesosphere/akka-server:0.2.2",
       "forcePullImage": true
     }
   },
@@ -214,14 +220,13 @@ so after that you should have a nice list of applications:
 
 Now that we successfully installed the application, let's take a look at the dashboard application.
 For this we just need to navigate to the `http://$PUBLIC_AGENT_IP:8000/`.
-Details about finding out how to find your public agent's ip can be found in the [documentation](https://docs.mesosphere.com/1.11/administering-clusters/locate-public-agent/).
-The application will give you a
-map where with every poll of the bus-data, that data is streamed into the map via a websocket connection.
+Details about finding out how to find your public agent's ip can be found in the [documentation](https://docs.mesosphere.com/1.12/administering-clusters/locate-public-agent/).
+The application will give you a map where with every poll of the bus-data, that data is streamed into the map via a websocket connection.
 
 ![](img/mapview.png)
 
-Besides the real-time data streamed into the map, it's possible to request the data from the last 15 Minutes,
-taken from the cassandra.
+Besides the real-time data streamed into the map, it's possible to request the data from the last 15 minutes,
+taken from Cassandra.
 
 At this point may I point you again to the full blog about what can be done with this use-case at
  [Iot Analytics Platform](https://blog.codecentric.de/en/2016/07/iot-analytics-platform/). It will give you
